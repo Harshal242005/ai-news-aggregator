@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_database_url() -> str:
+    # Prefer a single DATABASE_URL (used in GitHub Actions / Neon / production)
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+
+    # Fall back to building from individual pieces (local dev with docker-compose Postgres)
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "postgres")
     host = os.getenv("POSTGRES_HOST", "localhost")
@@ -13,12 +19,11 @@ def get_database_url() -> str:
     db = os.getenv("POSTGRES_DB", "ai_news_aggregator")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
-engine = create_engine(get_database_url())
+url = get_database_url()
+print("DATABASE_URL =", url)
+
+engine = create_engine(url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_session():
     return SessionLocal()
-
-url = get_database_url()
-print("DATABASE_URL =", url)
-engine = create_engine(url)
