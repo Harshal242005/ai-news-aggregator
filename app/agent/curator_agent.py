@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from app.utils.retry import retry_on_transient_error
 load_dotenv()
 
 class RankedArticle(BaseModel):
@@ -52,6 +53,21 @@ Interests:
 {interests}
 Preferences:
 {pref_text}"""
+    
+        
+    @retry_on_transient_error(max_attempts=3, base_delay=2.0)
+    def _call_gemini(self, user_prompt: str):
+        return self.client.models.generate_content(
+            model=self.model,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=self.system_prompt,
+                temperature=0.3,
+                response_mime_type="application/json",
+                response_schema=RankedDigestList,
+            ),
+        )
+
 
     def rank_digests(self, digests: List[dict]) -> List[RankedArticle]:
         if not digests:
@@ -81,3 +97,6 @@ Provide a relevance score (0.0-10.0) and rank (1-{len(digests)}) for each articl
         except Exception as e:
             print(f"Error ranking digests: {e}")
             return []
+        
+
+    

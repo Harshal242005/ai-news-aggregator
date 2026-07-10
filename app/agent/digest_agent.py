@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from app.utils.retry import retry_on_transient_error
 load_dotenv()
 
 class DigestOutput(BaseModel):
@@ -25,6 +26,19 @@ class DigestAgent:
         self.model = "gemini-2.5-flash"
         self.system_prompt = PROMPT
 
+    @retry_on_transient_error(max_attempts=3, base_delay=2.0)
+    def _call_gemini(self, user_prompt: str):
+        return self.client.models.generate_content(
+            model=self.model,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=self.system_prompt,
+                temperature=0.7,
+                response_mime_type="application/json",
+                response_schema=DigestOutput,
+            ),
+        )
+    
     def generate_digest(self, title: str, content: str, article_type: str) -> Optional[DigestOutput]:
         try:
             user_prompt = f"Create a digest for this {article_type}: \n Title: {title} \n Content: {content[:8000]}"
@@ -42,3 +56,7 @@ class DigestAgent:
         except Exception as e:
             print(f"Error generating digest: {e}")
             return None
+        
+
+
+
