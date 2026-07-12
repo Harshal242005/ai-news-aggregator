@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestResponse:
+def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestResponse | None:
     curator = CuratorAgent(USER_PROFILE)
     email_agent = EmailAgent(USER_PROFILE)
     repo = Repository()
@@ -26,8 +26,8 @@ def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestRespon
     total = len(digests)
     
     if total == 0:
-        logger.warning(f"No digests found from the last {hours} hours")
-        raise ValueError("No digests available")
+        logger.warning(f"No digests found from the last {hours} hours — skipping email, nothing new to send")
+        return None
     
     logger.info(f"Ranking {total} digests for email generation")
     ranked_articles = curator.rank_digests(digests)
@@ -36,6 +36,7 @@ def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestRespon
         logger.error("Failed to rank digests")
         raise ValueError("Failed to rank articles")
     
+        
     logger.info(f"Generating email digest with top {top_n} articles")
     
     article_details = [
@@ -69,6 +70,15 @@ def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestRespon
 def send_digest_email(hours: int = 24, top_n: int = 10) -> dict:
     try:
         result = generate_email_digest(hours=hours, top_n=top_n)
+
+        if result is None:
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "No new content in the last 24 hours",
+                "articles_count": 0
+            }
+
         markdown_content = result.to_markdown()
         html_content = digest_to_html(result)
         

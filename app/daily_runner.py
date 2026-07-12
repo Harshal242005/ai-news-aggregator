@@ -68,7 +68,10 @@ def run_daily_pipeline(hours: int = 24, top_n: int = 10) -> dict:
         results["email"] = email_result
         
         if email_result["success"]:
-            logger.info(f"✓ Email sent successfully with {email_result['articles_count']} articles")
+            if email_result.get("skipped"):
+                logger.info(f"✓ No new content today — email skipped ({email_result.get('reason')})")
+            else:
+                logger.info(f"✓ Email sent successfully with {email_result['articles_count']} articles")
             results["success"] = True
         else:
             logger.error(f"✗ Failed to send email: {email_result.get('error', 'Unknown error')}")
@@ -89,7 +92,7 @@ def run_daily_pipeline(hours: int = 24, top_n: int = 10) -> dict:
     logger.info(f"Scraped: {results['scraping']}")
     logger.info(f"Processed: {results['processing']}")
     logger.info(f"Digests: {results['digests']}")
-    logger.info(f"Email: {'Sent' if results['success'] else 'Failed'}")
+    logger.info(f"Email: {'Sent' if results['success'] and not results['email'].get('skipped') else 'Skipped (no new content)' if results['email'].get('skipped') else 'Failed'}")
     logger.info("=" * 60)
     
     return results
@@ -98,4 +101,3 @@ def run_daily_pipeline(hours: int = 24, top_n: int = 10) -> dict:
 if __name__ == "__main__":
     result = run_daily_pipeline(hours=24, top_n=10)
     exit(0 if result["success"] else 1)
-
