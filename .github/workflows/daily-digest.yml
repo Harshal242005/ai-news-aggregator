@@ -33,4 +33,5 @@ jobs:
           MY_EMAIL: ${{ secrets.MY_EMAIL }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          DIGEST_RECIPIENTS: ${{ secrets.DIGEST_RECIPIENTS }}
         run: uv run python main.py

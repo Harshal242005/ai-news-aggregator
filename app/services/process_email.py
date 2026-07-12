@@ -1,5 +1,6 @@
 import logging
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -67,6 +68,7 @@ def generate_email_digest(hours: int = 24, top_n: int = 10) -> EmailDigestRespon
     return email_digest
 
 
+
 def send_digest_email(hours: int = 24, top_n: int = 10) -> dict:
     try:
         result = generate_email_digest(hours=hours, top_n=top_n)
@@ -79,18 +81,43 @@ def send_digest_email(hours: int = 24, top_n: int = 10) -> dict:
                 "articles_count": 0
             }
 
-        markdown_content = result.to_markdown()
-        html_content = digest_to_html(result)
-        
+        base_markdown = result.to_markdown()
+        base_html = digest_to_html(result)
+
         subject = f"Daily AI News Digest - {result.introduction.greeting.split('for ')[-1] if 'for ' in result.introduction.greeting else 'Today'}"
-        
-        send_email(
-            subject=subject,
-            body_text=markdown_content,
-            body_html=html_content
-        )
-        
-        logger.info("Email sent successfully!")
+
+        default_name = USER_PROFILE["name"]
+        default_greeting_prefix = f"Hey {default_name}"
+
+        recipients_raw = os.getenv("DIGEST_RECIPIENTS", "")
+        recipient_pairs = []
+        for entry in recipients_raw.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            if ":" in entry:
+                name, email = entry.split(":", 1)
+                recipient_pairs.append((name.strip(), email.strip()))
+            else:
+                # fallback: no name given, just use "there"
+                recipient_pairs.append(("there", entry))
+
+        if not recipient_pairs:
+            # no DIGEST_RECIPIENTS set, fall back to MY_EMAIL with default name
+            send_email(subject=subject, body_text=base_markdown, body_html=base_html)
+            logger.info("Email sent successfully to 1 recipient (default)!")
+        else:
+            for name, email in recipient_pairs:
+                personalized_markdown = base_markdown.replace(default_greeting_prefix, f"Hey {name}", 1)
+                personalized_html = base_html.replace(default_greeting_prefix, f"Hey {name}", 1)
+                send_email(
+                    subject=subject,
+                    body_text=personalized_markdown,
+                    body_html=personalized_html,
+                    recipients=[email]
+                )
+            logger.info(f"Email sent successfully to {len(recipient_pairs)} recipient(s), each personalized!")
+
         return {
             "success": True,
             "subject": subject,
@@ -102,6 +129,7 @@ def send_digest_email(hours: int = 24, top_n: int = 10) -> dict:
             "success": False,
             "error": str(e)
         }
+
 
 
 if __name__ == "__main__":
